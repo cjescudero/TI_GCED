@@ -6,11 +6,13 @@ Recursos visuales en HTML (estáticos e interactivos) sobre **periodicidad espec
 
 ## Cómo ver el material
 
-El material se publica en **GitHub Pages**. Abre la URL del sitio (pestaña *Settings → Pages* de este repositorio) para ver el índice y acceder a todos los recursos desde el navegador.
+El material se publica en **GitHub Pages**. Puedes ver el índice y acceder a todos los recursos en:
+
+**[https://cjescudero.github.io/TI_GCED/](https://cjescudero.github.io/TI_GCED/)**
 
 ## Contenido
 
-- **Periodicidad espectral en tiempo discreto** (`aliasing.html`): diagrama SVG con las equivalencias \(F\), \(f = F/F_s\) y \(\omega = 2\pi f\).
-- **Aliasing al muestrear** (`aliasing_animacion.html`): animación interactiva para variar \(F_s / F_{max}\) y ver réplicas espectrales y solapamiento.
-- **Periodicidad en la circunferencia unidad** (`circunferencia.html`): diagramas para \(f\) (período 1) y \(\omega\) (período \(2\pi\)).
+- **Periodicidad en la circunferencia unidad** (`circunferencia.html`): diagramas comprender la periodicidad asociada a los ángulos/frecuencias de una circunferencia para para f (período 1) y \omega (período 2\pi).
+- **Periodicidad espectral en tiempo discreto** (`aliasing.html`): diagrama que muestra las equivalencias F, f = F/F_s y \omega = 2\pi f.
+- **Aliasing al muestrear** (`aliasing_animacion.html`): animación interactiva para variar F_s / F_{max} y ver réplicas espectrales y solapamiento.
 
