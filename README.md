@@ -1,6 +1,8 @@
-# TI_GCED — Helpers (HTML)
+# TI_GCED
 
-Recursos visuales en HTML (estáticos e interactivos) para apoyar la docencia de **GCED / procesado digital de señal**, centrados en **periodicidad espectral** y **aliasing**.
+Material de apoyo de la asignatura **Teoría de la Información (TI)** del **Grado de Ciencia e Ingeniería de Datos (GCED)** de la **Facultad de Informática (FIC)** de la **Universidade da Coruña (UDC)**.
+
+Recursos visuales en HTML (estáticos e interactivos) sobre **periodicidad espectral** y **aliasing**.
 
 ## Contenido
 
