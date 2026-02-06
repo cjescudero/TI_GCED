@@ -4,39 +4,13 @@ Material de apoyo de la asignatura **Teoría de la Información (TI)** del **Gra
 
 Recursos visuales en HTML (estáticos e interactivos) sobre **periodicidad espectral** y **aliasing**.
 
+## Cómo ver el material
+
+El material se publica en **GitHub Pages**. Abre la URL del sitio (pestaña *Settings → Pages* de este repositorio) para ver el índice y acceder a todos los recursos desde el navegador.
+
 ## Contenido
 
-- **`aliasing.html`**: diagrama SVG sobre la **periodicidad espectral en tiempo discreto** y las equivalencias \(F\), \(f = F/F_s\) y \(\omega = 2\pi f\).  
-  Abrir: [`aliasing.html`](aliasing.html)
-
-- **`aliasing_animacion.html`**: animación interactiva en `canvas` para visualizar el **aliasing al muestrear**, controlando el cociente \(F_s / F_{max}\).  
-  Abrir: [`aliasing_animacion.html`](aliasing_animacion.html)
-
-- **`circunferencia.html`**: diagrama sobre **periodicidad en la circunferencia unidad** para frecuencia normalizada \(f\) (período 1) y frecuencia angular \(\omega\) (período \(2\pi\)).  
-  Abrir: [`circunferencia.html`](circunferencia.html)
-
-## Cómo verlo
-
-### Opción A: abrir directamente
-
-Haz doble clic en cualquiera de los HTML y ábrelo en tu navegador.
-
-### Opción B: servidor local (recomendado)
-
-Algunas configuraciones del navegador restringen ciertas cargas locales; si te ocurre, levanta un servidor en la carpeta del repo:
-
-```bash
-python3 -m http.server 8000
-```
-
-Luego abre en el navegador:
-
-- `http://localhost:8000/aliasing.html`
-- `http://localhost:8000/aliasing_animacion.html`
-- `http://localhost:8000/circunferencia.html`
-
-## Notas
-
-- No hay dependencias de build: es **HTML + CSS + JS** “a pelo”.
-- Se usan tipografías de **Google Fonts** (requiere conexión a Internet para cargarlas).
+- **Periodicidad espectral en tiempo discreto** (`aliasing.html`): diagrama SVG con las equivalencias \(F\), \(f = F/F_s\) y \(\omega = 2\pi f\).
+- **Aliasing al muestrear** (`aliasing_animacion.html`): animación interactiva para variar \(F_s / F_{max}\) y ver réplicas espectrales y solapamiento.
+- **Periodicidad en la circunferencia unidad** (`circunferencia.html`): diagramas para \(f\) (período 1) y \(\omega\) (período \(2\pi\)).
 
