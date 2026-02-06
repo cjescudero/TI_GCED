@@ -98,7 +98,7 @@
   La cuantificación aproxima la señal analógica a un conjunto discreto de niveles. La diferencia entre la señal original y la cuantificada es el <strong>ruido de cuantificación</strong>.
 </p>
 
-<canvas id="c" width="900" height="560"></canvas>
+<canvas id="c" width="900" height="680"></canvas>
 
 <div class="controls">
   <div class="slider-row">
@@ -114,9 +114,9 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
-// Layout: two panels like Wikipedia diagram
-const margin = { top: 50, right: 50, bottom: 36, left: 52 };
-const gap = 14;
+// Layout: two panels with generous gap
+const margin = { top: 50, right: 50, bottom: 36, left: 60 };
+const gap = 50;                           // wide gap to avoid overlap
 const panelH = (H - margin.top - margin.bottom - gap) / 2;
 const plotTop = margin.top;
 const plotBottom1 = plotTop + panelH;
@@ -129,48 +129,90 @@ const plotW = plotRight - plotLeft;
 const COL_BLACK = '#1a1a2e';
 const COL_BLUE = '#1b6b93';
 const COL_RED = '#c0392b';
-const COL_GRAY = '#888';
 const COL_GREEN = '#0e7c4a';
 
 let numBits = 8;
 
-// Analog signal in [0, 1]: combination of frequencies for a rich shape
+// ── Fixed sampling grid ──
+const NUM_SAMPLES = 80;          // fixed number of samples (Ts constant)
+
+// ── Analog signal strictly in [0, 1] ──
+// Pre-compute a raw waveform, then normalise.
+const N_RENDER = 1200;           // rendering resolution (smooth curve)
+const rawWave = new Float64Array(N_RENDER + 1);
+let rawMin = Infinity, rawMax = -Infinity;
+for (let i = 0; i <= N_RENDER; i++) {
+  const x = 2 * Math.PI * i / N_RENDER;
+  const v = Math.sin(x) + 0.35 * Math.sin(3 * x - 0.8) + 0.15 * Math.sin(5 * x + 1);
+  rawWave[i] = v;
+  if (v < rawMin) rawMin = v;
+  if (v > rawMax) rawMax = v;
+}
+const SIG_MARGIN = 0.02;
 function analogSignal(t) {
-  const x = 2 * Math.PI * t;
-  return 0.5 + 0.48 * (Math.sin(x) + 0.4 * Math.sin(2 * x + 0.5) + 0.2 * Math.sin(4 * x));
+  const idx = t * N_RENDER;
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, N_RENDER);
+  const frac = idx - i0;
+  const raw = rawWave[i0] * (1 - frac) + rawWave[i1] * frac;
+  return SIG_MARGIN + (1 - 2 * SIG_MARGIN) * (raw - rawMin) / (rawMax - rawMin);
 }
 
-// Quantize value in [0, 1] to 2^N levels (mid-riser: levels at 0.5/L, 1.5/L, ...)
+// Quantize value in [0, 1] to 2^N levels (mid-riser uniform)
 function quantize(x, n) {
-  const L = Math.pow(2, n);
+  const L = 1 << n;
   const step = 1 / L;
-  const index = Math.min(Math.floor(x / step), L - 1);
-  return (index + 0.5) * step;
+  const idx = Math.max(0, Math.min(L - 1, Math.floor(x / step)));
+  return (idx + 0.5) * step;
 }
 
-function drawPanel1() {
-  const yMin = 0, yMax = 1;
-  const nSamples = 800;
-  const ptsAnalog = [];
-  const ptsQuant = [];
-
-  for (let i = 0; i <= nSamples; i++) {
-    const t = i / nSamples;
-    const x = plotLeft + t * plotW;
-    const yAnalog = analogSignal(t);
-    const yQuant = quantize(yAnalog, numBits);
-    const yPxA = plotBottom1 - (yAnalog - yMin) / (yMax - yMin) * panelH;
-    const yPxQ = plotBottom1 - (yQuant - yMin) / (yMax - yMin) * panelH;
-    ptsAnalog.push({ x, y: yPxA });
-    ptsQuant.push({ x, y: yPxQ });
+// Pre-compute sample values (fixed grid, recomputed on bits change)
+let sampleQ = [];   // quantized value per sample
+let sampleE = [];   // quantization error per sample
+function computeSamples() {
+  sampleQ = [];
+  sampleE = [];
+  for (let s = 0; s < NUM_SAMPLES; s++) {
+    const t = (s + 0.5) / NUM_SAMPLES;   // sample at centre of interval
+    const a = analogSignal(t);
+    const q = quantize(a, numBits);
+    sampleQ.push(q);
+    sampleE.push(a - q);                 // always in [−½Δ, +½Δ)
   }
+}
 
+// Map value in [0,1] to pixel Y inside a panel
+function valToY(v, top, bot) {
+  return bot - v * (bot - top);
+}
+
+// Draw a zero-order-hold staircase from an array of per-sample values
+function drawStaircase(values, yMap, color, lw) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  for (let s = 0; s < NUM_SAMPLES; s++) {
+    const xL = plotLeft + (s / NUM_SAMPLES) * plotW;
+    const xR = plotLeft + ((s + 1) / NUM_SAMPLES) * plotW;
+    const y = yMap(values[s]);
+    if (s === 0) {
+      ctx.moveTo(xL, y);
+    } else {
+      ctx.lineTo(xL, y);   // vertical step
+    }
+    ctx.lineTo(xR, y);     // horizontal hold
+  }
+  ctx.stroke();
+}
+
+// ────────── PANEL 1: señal + cuantificada ──────────
+function drawPanel1() {
   // Grid
   ctx.strokeStyle = '#eee';
   ctx.lineWidth = 0.8;
+  ctx.setLineDash([4, 4]);
   for (let v = 0; v <= 1; v += 0.25) {
-    const y = plotBottom1 - (v - yMin) / (yMax - yMin) * panelH;
-    ctx.setLineDash([4, 4]);
+    const y = valToY(v, plotTop, plotBottom1);
     ctx.beginPath();
     ctx.moveTo(plotLeft, y);
     ctx.lineTo(plotRight, y);
@@ -178,23 +220,19 @@ function drawPanel1() {
   }
   ctx.setLineDash([]);
 
-  // Quantized (red, stepped) — draw first so it's under the smooth curve
-  ctx.strokeStyle = COL_RED;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(ptsQuant[0].x, ptsQuant[0].y);
-  for (let i = 1; i <= nSamples; i++) {
-    ctx.lineTo(ptsQuant[i].x, ptsQuant[i].y);
-  }
-  ctx.stroke();
+  // Quantized (red, staircase with FIXED sample width)
+  drawStaircase(sampleQ, v => valToY(v, plotTop, plotBottom1), COL_RED, 2);
 
   // Analog (blue, smooth)
   ctx.strokeStyle = COL_BLUE;
   ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.moveTo(ptsAnalog[0].x, ptsAnalog[0].y);
-  for (let i = 1; i <= nSamples; i++) {
-    ctx.lineTo(ptsAnalog[i].x, ptsAnalog[i].y);
+  for (let i = 0; i <= N_RENDER; i++) {
+    const t = i / N_RENDER;
+    const px = plotLeft + t * plotW;
+    const py = valToY(analogSignal(t), plotTop, plotBottom1);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
   ctx.stroke();
 
@@ -208,64 +246,38 @@ function drawPanel1() {
   ctx.stroke();
 
   // Y labels
-  ctx.font = '12px "STIX Two Text", serif';
+  ctx.font = '13px "STIX Two Text", serif';
   ctx.fillStyle = COL_BLACK;
   ctx.textAlign = 'right';
-  ctx.fillText('1', plotLeft - 6, plotTop + 4);
-  ctx.fillText('0', plotLeft - 6, plotBottom1 + 4);
+  ctx.fillText('1', plotLeft - 8, plotTop + 5);
+  ctx.fillText('0', plotLeft - 8, plotBottom1 + 5);
 }
 
+// ────────── PANEL 2: error de cuantificación ──────────
 function drawPanel2() {
-  const nSamples = 800;
-  const ptsError = [];
-  let maxAbsErr = 0;
-
-  for (let i = 0; i <= nSamples; i++) {
-    const t = i / nSamples;
-    const x = plotLeft + t * plotW;
-    const yAnalog = analogSignal(t);
-    const yQuant = quantize(yAnalog, numBits);
-    const err = yAnalog - yQuant;
-    if (Math.abs(err) > maxAbsErr) maxAbsErr = Math.abs(err);
-    const errRange = 0.5;
-    const yPx = plotTop2 + panelH / 2 - (err / errRange) * (panelH / 2);
-    ptsError.push({ x, y: yPx, err });
-  }
-
+  const L = 1 << numBits;
+  const delta = 1 / L;
+  const halfDelta = delta / 2;
   const yCenter = plotTop2 + panelH / 2;
 
-  // Grid (zero line highlighted)
-  ctx.strokeStyle = '#ddd';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(plotLeft, yCenter);
-  ctx.lineTo(plotRight, yCenter);
-  ctx.setLineDash([6, 4]);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  // Scale: map ±halfDelta → ±80 % of half-panel
+  const errScale = (panelH / 2) * 0.80 / halfDelta;
+  const yPlus  = yCenter - panelH / 2 * 0.80;
+  const yMinus = yCenter + panelH / 2 * 0.80;
 
-  ctx.strokeStyle = '#eee';
+  // Reference lines: 0, +½Δ, −½Δ
+  ctx.strokeStyle = '#ccc';
   ctx.lineWidth = 0.8;
-  for (let e = -0.25; e <= 0.25; e += 0.25) {
-    if (e === 0) continue;
-    const y = plotTop2 + panelH / 2 - (e / 0.5) * (panelH / 2);
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(plotLeft, y);
-    ctx.lineTo(plotRight, y);
-    ctx.stroke();
-  }
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(plotLeft, yPlus);  ctx.lineTo(plotRight, yPlus);
+  ctx.moveTo(plotLeft, yMinus); ctx.lineTo(plotRight, yMinus);
+  ctx.moveTo(plotLeft, yCenter); ctx.lineTo(plotRight, yCenter);
+  ctx.stroke();
   ctx.setLineDash([]);
 
-  // Error curve (green/dark green)
-  ctx.strokeStyle = COL_GREEN;
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(ptsError[0].x, ptsError[0].y);
-  for (let i = 1; i <= nSamples; i++) {
-    ctx.lineTo(ptsError[i].x, ptsError[i].y);
-  }
-  ctx.stroke();
+  // Error staircase (green, same fixed sample grid)
+  drawStaircase(sampleE, e => yCenter - e * errScale, COL_GREEN, 1.8);
 
   // Axis
   ctx.strokeStyle = COL_BLACK;
@@ -276,56 +288,71 @@ function drawPanel2() {
   ctx.lineTo(plotRight, plotBottom2);
   ctx.stroke();
 
-  // Y labels (error)
-  ctx.font = '12px "STIX Two Text", serif';
+  // Y labels
+  ctx.font = '13px "STIX Two Text", serif';
   ctx.fillStyle = COL_BLACK;
   ctx.textAlign = 'right';
-  ctx.fillText('+½ LSB', plotLeft - 6, plotTop2 + 4);
-  ctx.fillText('0', plotLeft - 6, yCenter + 4);
-  ctx.fillText('−½ LSB', plotLeft - 6, plotBottom2 + 4);
+  ctx.fillText('+½Δ', plotLeft - 8, yPlus + 5);
+  ctx.fillText('0',    plotLeft - 8, yCenter + 5);
+  ctx.fillText('−½Δ',  plotLeft - 8, yMinus + 5);
+
+  // Numerical Δ
+  ctx.textAlign = 'left';
+  ctx.font = '12px "STIX Two Text", serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('Δ = 1/' + L + ' ≈ ' + delta.toPrecision(3), plotLeft + 4, plotTop2 + 14);
 }
 
+// ────────── Labels & legend ──────────
 function drawLabels() {
   ctx.save();
   ctx.font = '600 14px "Playfair Display", serif';
   ctx.fillStyle = '#444';
   ctx.textAlign = 'left';
-
-  ctx.fillText('Arriba: señal analógica (azul) y señal cuantificada (rojo).', 20, plotTop - 22);
-  ctx.fillText('Abajo: error de cuantificación (ruido de cuantificación).', 20, plotTop2 - 4);
-
+  ctx.fillText('Señal analógica (azul) y señal cuantificada (rojo)', plotLeft, plotTop - 18);
+  ctx.fillText('Error de cuantificación e[n] = x[n] − xq[n]', plotLeft, plotTop2 - 14);
   ctx.restore();
 
-  // X axis label (only bottom panel)
+  // X axis label
   ctx.font = 'italic 14px "STIX Two Text", serif';
   ctx.fillStyle = COL_BLACK;
   ctx.textAlign = 'center';
-  ctx.fillText('t (muestras / tiempo normalizado)', (plotLeft + plotRight) / 2, plotBottom2 + 28);
+  ctx.fillText('n  (muestras)', (plotLeft + plotRight) / 2, plotBottom2 + 28);
 
-  // Legend
-  const legX = plotRight - 10;
-  const legY = plotTop - 8;
-  ctx.textAlign = 'right';
+  // Legend (inside panel 1, top-right corner, with background)
+  const legX = plotRight - 12;
+  const legY = plotTop + 12;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillRect(legX - 116, legY - 10, 122, 42);
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(legX - 116, legY - 10, 122, 42);
+
   ctx.font = '12px "STIX Two Text", serif';
+  ctx.textAlign = 'left';
+
   ctx.strokeStyle = COL_BLUE;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(legX - 70, legY);
-  ctx.lineTo(legX - 45, legY);
+  ctx.moveTo(legX - 110, legY);
+  ctx.lineTo(legX - 86, legY);
   ctx.stroke();
   ctx.fillStyle = COL_BLUE;
-  ctx.fillText('Analógica', legX - 42, legY + 4);
+  ctx.fillText('Analógica', legX - 82, legY + 4);
 
   ctx.strokeStyle = COL_RED;
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(legX - 70, legY + 16);
-  ctx.lineTo(legX - 45, legY + 16);
+  ctx.moveTo(legX - 110, legY + 18);
+  ctx.lineTo(legX - 86, legY + 18);
   ctx.stroke();
   ctx.fillStyle = COL_RED;
-  ctx.fillText('Cuantificada', legX - 42, legY + 20);
+  ctx.fillText('Cuantificada', legX - 82, legY + 22);
 }
 
+// ────────── Main ──────────
 function draw() {
+  computeSamples();
   ctx.clearRect(0, 0, W, H);
   drawPanel1();
   drawPanel2();
@@ -336,7 +363,8 @@ function updateSnr() {
   const snrApprox = numBits * 6;
   const el = document.getElementById('snrInfo');
   if (el) {
-    el.innerHTML = 'Relación señal-ruido aproximada: <strong>' + snrApprox + ' dB</strong> (≈ <i>N</i>×6 dB). CD audio: 16 bits → ~96 dB.';
+    el.innerHTML = 'Relación señal-ruido: ≈ <strong>' + snrApprox + ' dB</strong> '
+      + '(SNR ≈ <i>N</i> × 6 dB). Ejemplo: CD audio → 16 bits → ~96 dB.';
   }
 }
 
