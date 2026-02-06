@@ -18,6 +18,21 @@
     min-height: 100vh;
     padding: 2rem 1rem;
   }
+  .nav-menu {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.8rem;
+    color: #888;
+    text-decoration: none;
+    opacity: 0.85;
+    z-index: 100;
+    transition: color 0.2s, opacity 0.2s;
+  }
+  .nav-menu:hover {
+    color: #1b6b93;
+    opacity: 1;
+  }
   h1 {
     font-family: 'Playfair Display', serif;
     font-size: 1.9rem;
@@ -56,6 +71,8 @@
 </style>
 </head>
 <body>
+
+<a href="https://cjescudero.github.io/TI_GCED/" class="nav-menu" rel="noopener noreferrer" aria-label="Volver al menú principal">Menú</a>
 
 <h1>Periodicidad espectral en tiempo discreto</h1>
 <p class="subtitle">Al muestrear una señal continua con frecuencia F<sub>s</sub>, el espectro se hace periódico. Frecuencias separadas por F<sub>s</sub> (ó 1, ó 2π) resultan indistinguibles: aliasing.</p>
