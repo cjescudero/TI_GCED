@@ -306,48 +306,143 @@ function drawReplica(offset, color, fill, alpha) {
   drawTriangle(cx, axisY - 20, Fmax_px, triHeight, color, alpha, true);
 }
 
-// --- Result spectrum on f axis ---
+// --- Result spectrum on f axis (sum of all periodic replicas) ---
 function drawResultSpectrum() {
   ctx.save();
   const Fs = getFsPx(), half = Fs / 2;
   const hasAliasing = Fmax_px > half;
-  const fmax_f = Math.min(Fmax_px / half, 1.0);
-  const fmax_px = fmax_f * fHalfMark;
+
+  // Half-width of each spectral replica in normalised frequency f
+  const fw = 1 / fsRatio;                   // = Fmax / Fs
+  const pixPerF = 2 * fHalfMark;            // 1 unit of f  →  pixels
+
+  // Triangle amplitude at normalised frequency f for copy centred at c
+  function tri(f, c, w) {
+    const d = Math.abs(f - c);
+    return d < w ? 1 - d / w : 0;
+  }
+  // Sum over periodic replicas  k = −5 … +5
+  function sumSpec(f) {
+    let s = 0;
+    for (let k = -5; k <= 5; k++) s += tri(f, k, fw);
+    return s;
+  }
+
+  // --- Sample the sum in [−½, ½] ---
+  const N = 500;
+  const pts = [];
+  let vMax = 0;
+  for (let i = 0; i <= N; i++) {
+    const f = -0.5 + i / N;
+    const v = sumSpec(f);
+    pts.push({ x: centerX + f * pixPerF, y: fAxisY - v * fTriHeight });
+    if (v > vMax) vMax = v;
+  }
 
   if (!hasAliasing) {
-    drawFilledTri(centerX, fAxisY, fmax_px, fTriHeight, 'rgba(14, 124, 74, 0.1)', 1);
-    drawTriangle(centerX, fAxisY, fmax_px, fTriHeight, COL_GREEN, 1, false);
-
-    ctx.font = '14px "STIX Two Text", serif'; ctx.fillStyle = COL_GREEN; ctx.textAlign = 'center';
-    ctx.fillText('✓ Sin aliasing (Fs > 2Fmax)', centerX, fAxisY - fTriHeight - 8);
-  } else {
+    /* ---------- SIN ALIASING ---------- */
+    // Filled area
     ctx.beginPath();
-    ctx.rect(centerX - fHalfMark - 2, fAxisY - fTriHeight - 30, fHalfMark * 2 + 4, fTriHeight + 32);
+    ctx.moveTo(pts[0].x, fAxisY);
+    for (const p of pts) ctx.lineTo(p.x, p.y);
+    ctx.lineTo(pts[N].x, fAxisY);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(14, 124, 74, 0.10)';
+    ctx.fill();
+    // Contour
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+      else ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.strokeStyle = COL_GREEN;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = '14px "STIX Two Text", serif';
+    ctx.fillStyle = COL_GREEN;
+    ctx.textAlign = 'center';
+    ctx.fillText('✓ Sin aliasing (Fs ≥ 2Fmax)', centerX, fAxisY - fTriHeight - 8);
+
+  } else {
+    /* ---------- CON ALIASING ---------- */
+    const fmax_px = fw * pixPerF;  // pixel half-width of each replica triangle
+
+    // 1. Faint individual components (clipped to visible f range)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(centerX - fHalfMark - 2, fAxisY - fTriHeight - 30,
+             fHalfMark * 2 + 4, fTriHeight + 32);
     ctx.clip();
 
-    drawFilledTri(centerX, fAxisY, fmax_px, fTriHeight, 'rgba(27,107,147,0.06)', 0.8);
-    drawTriangle(centerX, fAxisY, fmax_px, fTriHeight, COL_BLUE, 0.5, false);
+    // Original (blue)
+    drawFilledTri(centerX, fAxisY, fmax_px, fTriHeight,
+                  'rgba(27,107,147,0.06)', 0.5);
+    drawTriangle(centerX, fAxisY, fmax_px, fTriHeight,
+                 COL_BLUE, 0.35, false);
+    // Replica k = +1 (red)
+    drawFilledTri(centerX + pixPerF, fAxisY, fmax_px, fTriHeight,
+                  'rgba(192,57,43,0.06)', 0.4);
+    drawTriangle(centerX + pixPerF, fAxisY, fmax_px, fTriHeight,
+                 COL_RED, 0.3, true);
+    // Replica k = −1 (orange)
+    drawFilledTri(centerX - pixPerF, fAxisY, fmax_px, fTriHeight,
+                  'rgba(199,138,30,0.06)', 0.4);
+    drawTriangle(centerX - pixPerF, fAxisY, fmax_px, fTriHeight,
+                 COL_ORANGE, 0.3, true);
 
-    const repR = centerX + fHalfMark * 2;
-    drawFilledTri(repR, fAxisY, fmax_px, fTriHeight, 'rgba(192,57,43,0.08)', 0.6);
-    drawTriangle(repR, fAxisY, fmax_px, fTriHeight, COL_RED, 0.6, true);
+    ctx.restore();  // remove clip
 
-    const repL = centerX - fHalfMark * 2;
-    drawFilledTri(repL, fAxisY, fmax_px, fTriHeight, 'rgba(199,138,30,0.08)', 0.6);
-    drawTriangle(repL, fAxisY, fmax_px, fTriHeight, COL_ORANGE, 0.6, true);
-
-    ctx.restore();
-    ctx.save();
-
-    const overlapStart_px = fHalfMark * 2 - fmax_px;
-    if (overlapStart_px < fHalfMark) {
-      ctx.fillStyle = 'rgba(200, 0, 0, 0.12)';
-      ctx.fillRect(centerX + overlapStart_px, fAxisY - fTriHeight, fHalfMark - overlapStart_px, fTriHeight);
-      ctx.fillRect(centerX - fHalfMark, fAxisY - fTriHeight, fHalfMark - overlapStart_px, fTriHeight);
+    // 2. Light overlap-zone shading
+    const overlapStart_f = 1 - fw;
+    if (overlapStart_f < 0.5) {
+      ctx.save();
+      ctx.globalAlpha = 0.10;
+      ctx.fillStyle = '#ff0000';
+      const oR1 = centerX + overlapStart_f * pixPerF;
+      const oR2 = centerX + fHalfMark;
+      ctx.fillRect(oR1, fAxisY - fTriHeight, oR2 - oR1, fTriHeight);
+      const oL1 = centerX - fHalfMark;
+      const oL2 = centerX - overlapStart_f * pixPerF;
+      ctx.fillRect(oL1, fAxisY - fTriHeight, oL2 - oL1, fTriHeight);
+      ctx.restore();
     }
 
-    ctx.font = 'bold 14px "STIX Two Text", serif'; ctx.fillStyle = COL_RED; ctx.textAlign = 'center';
-    ctx.fillText('¡ALIASING! (Fs < 2Fmax)', centerX, fAxisY - fTriHeight - 8);
+    // 3. Sum contour (bold, on top of everything)
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, fAxisY);
+    for (const p of pts) ctx.lineTo(p.x, p.y);
+    ctx.lineTo(pts[N].x, fAxisY);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(139, 0, 80, 0.08)';
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+      else ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.strokeStyle = '#8b0050';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 4. Label
+    ctx.font = 'bold 14px "STIX Two Text", serif';
+    ctx.fillStyle = COL_RED;
+    ctx.textAlign = 'center';
+    ctx.fillText('¡ALIASING! (Fs < 2Fmax)', centerX, fAxisY - vMax * fTriHeight - 8);
+
+    // 5. Small legend for the sum line
+    ctx.font = '12px "STIX Two Text", serif';
+    ctx.textAlign = 'right';
+    ctx.strokeStyle = '#8b0050'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(centerX + fHalfMark - 80, fAxisY - fTriHeight - 22);
+    ctx.lineTo(centerX + fHalfMark - 50, fAxisY - fTriHeight - 22);
+    ctx.stroke();
+    ctx.fillStyle = '#8b0050';
+    ctx.textAlign = 'left';
+    ctx.fillText('Σ réplicas', centerX + fHalfMark - 46, fAxisY - fTriHeight - 17);
   }
 
   ctx.restore();
