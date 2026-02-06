@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruido de cuantificación</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    color: #1a1a2e;
+    font-family: 'STIX Two Text', 'Times New Roman', serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.2rem 1rem;
+    min-height: 100vh;
+  }
+  .nav-menu {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.8rem;
+    color: #888;
+    text-decoration: none;
+    opacity: 0.85;
+    z-index: 100;
+    transition: color 0.2s, opacity 0.2s;
+  }
+  .nav-menu:hover {
+    color: #1b6b93;
+    opacity: 1;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    text-align: center;
+  }
+  .subtitle {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 1rem;
+    text-align: center;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+  canvas {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    max-width: 100%;
+  }
+  .controls {
+    margin-top: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.05rem;
+  }
+  .slider-row label {
+    font-weight: 600;
+    min-width: 140px;
+    text-align: right;
+  }
+  .slider-row input[type=range] {
+    width: 280px;
+    accent-color: #1b6b93;
+  }
+  .slider-row .val {
+    min-width: 60px;
+    font-style: italic;
+    color: #1b6b93;
+    font-size: 1.1rem;
+  }
+  .info {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.5rem;
+    text-align: center;
+    max-width: 520px;
+  }
+</style>
+</head>
+<body>
+
+<a href="https://cjescudero.github.io/TI_GCED/" class="nav-menu" rel="noopener noreferrer" aria-label="Volver al índice de materiales">Índice de materiales</a>
+
+<h1>Ruido de cuantificación</h1>
+<p class="subtitle">
+  La cuantificación aproxima la señal analógica a un conjunto discreto de niveles. La diferencia entre la señal original y la cuantificada es el <strong>ruido de cuantificación</strong>.
+</p>
+
+<canvas id="c" width="900" height="560"></canvas>
+
+<div class="controls">
+  <div class="slider-row">
+    <label>Número de bits <i>N</i>:</label>
+    <input type="range" id="bitsSlider" min="1" max="16" step="1" value="8"/>
+    <span class="val" id="bitsVal">8</span>
+  </div>
+  <p class="info" id="snrInfo">Relación señal-ruido aproximada: 48 dB (≈ <i>N</i>×6 dB). CD audio: 16 bits → ~96 dB.</p>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Layout: two panels like Wikipedia diagram
+const margin = { top: 50, right: 50, bottom: 36, left: 52 };
+const gap = 14;
+const panelH = (H - margin.top - margin.bottom - gap) / 2;
+const plotTop = margin.top;
+const plotBottom1 = plotTop + panelH;
+const plotTop2 = plotBottom1 + gap;
+const plotBottom2 = plotTop2 + panelH;
+const plotLeft = margin.left;
+const plotRight = W - margin.right;
+const plotW = plotRight - plotLeft;
+
+const COL_BLACK = '#1a1a2e';
+const COL_BLUE = '#1b6b93';
+const COL_RED = '#c0392b';
+const COL_GRAY = '#888';
+const COL_GREEN = '#0e7c4a';
+
+let numBits = 8;
+
+// Analog signal in [0, 1]: combination of frequencies for a rich shape
+function analogSignal(t) {
+  const x = 2 * Math.PI * t;
+  return 0.5 + 0.48 * (Math.sin(x) + 0.4 * Math.sin(2 * x + 0.5) + 0.2 * Math.sin(4 * x));
+}
+
+// Quantize value in [0, 1] to 2^N levels (mid-riser: levels at 0.5/L, 1.5/L, ...)
+function quantize(x, n) {
+  const L = Math.pow(2, n);
+  const step = 1 / L;
+  const index = Math.min(Math.floor(x / step), L - 1);
+  return (index + 0.5) * step;
+}
+
+function drawPanel1() {
+  const yMin = 0, yMax = 1;
+  const nSamples = 800;
+  const ptsAnalog = [];
+  const ptsQuant = [];
+
+  for (let i = 0; i <= nSamples; i++) {
+    const t = i / nSamples;
+    const x = plotLeft + t * plotW;
+    const yAnalog = analogSignal(t);
+    const yQuant = quantize(yAnalog, numBits);
+    const yPxA = plotBottom1 - (yAnalog - yMin) / (yMax - yMin) * panelH;
+    const yPxQ = plotBottom1 - (yQuant - yMin) / (yMax - yMin) * panelH;
+    ptsAnalog.push({ x, y: yPxA });
+    ptsQuant.push({ x, y: yPxQ });
+  }
+
+  // Grid
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 0.8;
+  for (let v = 0; v <= 1; v += 0.25) {
+    const y = plotBottom1 - (v - yMin) / (yMax - yMin) * panelH;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, y);
+    ctx.lineTo(plotRight, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Quantized (red, stepped) — draw first so it's under the smooth curve
+  ctx.strokeStyle = COL_RED;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(ptsQuant[0].x, ptsQuant[0].y);
+  for (let i = 1; i <= nSamples; i++) {
+    ctx.lineTo(ptsQuant[i].x, ptsQuant[i].y);
+  }
+  ctx.stroke();
+
+  // Analog (blue, smooth)
+  ctx.strokeStyle = COL_BLUE;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(ptsAnalog[0].x, ptsAnalog[0].y);
+  for (let i = 1; i <= nSamples; i++) {
+    ctx.lineTo(ptsAnalog[i].x, ptsAnalog[i].y);
+  }
+  ctx.stroke();
+
+  // Axis
+  ctx.strokeStyle = COL_BLACK;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(plotLeft, plotTop);
+  ctx.lineTo(plotLeft, plotBottom1);
+  ctx.lineTo(plotRight, plotBottom1);
+  ctx.stroke();
+
+  // Y labels
+  ctx.font = '12px "STIX Two Text", serif';
+  ctx.fillStyle = COL_BLACK;
+  ctx.textAlign = 'right';
+  ctx.fillText('1', plotLeft - 6, plotTop + 4);
+  ctx.fillText('0', plotLeft - 6, plotBottom1 + 4);
+}
+
+function drawPanel2() {
+  const nSamples = 800;
+  const ptsError = [];
+  let maxAbsErr = 0;
+
+  for (let i = 0; i <= nSamples; i++) {
+    const t = i / nSamples;
+    const x = plotLeft + t * plotW;
+    const yAnalog = analogSignal(t);
+    const yQuant = quantize(yAnalog, numBits);
+    const err = yAnalog - yQuant;
+    if (Math.abs(err) > maxAbsErr) maxAbsErr = Math.abs(err);
+    const errRange = 0.5;
+    const yPx = plotTop2 + panelH / 2 - (err / errRange) * (panelH / 2);
+    ptsError.push({ x, y: yPx, err });
+  }
+
+  const yCenter = plotTop2 + panelH / 2;
+
+  // Grid (zero line highlighted)
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotLeft, yCenter);
+  ctx.lineTo(plotRight, yCenter);
+  ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 0.8;
+  for (let e = -0.25; e <= 0.25; e += 0.25) {
+    if (e === 0) continue;
+    const y = plotTop2 + panelH / 2 - (e / 0.5) * (panelH / 2);
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, y);
+    ctx.lineTo(plotRight, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Error curve (green/dark green)
+  ctx.strokeStyle = COL_GREEN;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(ptsError[0].x, ptsError[0].y);
+  for (let i = 1; i <= nSamples; i++) {
+    ctx.lineTo(ptsError[i].x, ptsError[i].y);
+  }
+  ctx.stroke();
+
+  // Axis
+  ctx.strokeStyle = COL_BLACK;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(plotLeft, plotTop2);
+  ctx.lineTo(plotLeft, plotBottom2);
+  ctx.lineTo(plotRight, plotBottom2);
+  ctx.stroke();
+
+  // Y labels (error)
+  ctx.font = '12px "STIX Two Text", serif';
+  ctx.fillStyle = COL_BLACK;
+  ctx.textAlign = 'right';
+  ctx.fillText('+½ LSB', plotLeft - 6, plotTop2 + 4);
+  ctx.fillText('0', plotLeft - 6, yCenter + 4);
+  ctx.fillText('−½ LSB', plotLeft - 6, plotBottom2 + 4);
+}
+
+function drawLabels() {
+  ctx.save();
+  ctx.font = '600 14px "Playfair Display", serif';
+  ctx.fillStyle = '#444';
+  ctx.textAlign = 'left';
+
+  ctx.fillText('Arriba: señal analógica (azul) y señal cuantificada (rojo).', 20, plotTop - 22);
+  ctx.fillText('Abajo: error de cuantificación (ruido de cuantificación).', 20, plotTop2 - 4);
+
+  ctx.restore();
+
+  // X axis label (only bottom panel)
+  ctx.font = 'italic 14px "STIX Two Text", serif';
+  ctx.fillStyle = COL_BLACK;
+  ctx.textAlign = 'center';
+  ctx.fillText('t (muestras / tiempo normalizado)', (plotLeft + plotRight) / 2, plotBottom2 + 28);
+
+  // Legend
+  const legX = plotRight - 10;
+  const legY = plotTop - 8;
+  ctx.textAlign = 'right';
+  ctx.font = '12px "STIX Two Text", serif';
+  ctx.strokeStyle = COL_BLUE;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(legX - 70, legY);
+  ctx.lineTo(legX - 45, legY);
+  ctx.stroke();
+  ctx.fillStyle = COL_BLUE;
+  ctx.fillText('Analógica', legX - 42, legY + 4);
+
+  ctx.strokeStyle = COL_RED;
+  ctx.beginPath();
+  ctx.moveTo(legX - 70, legY + 16);
+  ctx.lineTo(legX - 45, legY + 16);
+  ctx.stroke();
+  ctx.fillStyle = COL_RED;
+  ctx.fillText('Cuantificada', legX - 42, legY + 20);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawPanel1();
+  drawPanel2();
+  drawLabels();
+}
+
+function updateSnr() {
+  const snrApprox = numBits * 6;
+  const el = document.getElementById('snrInfo');
+  if (el) {
+    el.innerHTML = 'Relación señal-ruido aproximada: <strong>' + snrApprox + ' dB</strong> (≈ <i>N</i>×6 dB). CD audio: 16 bits → ~96 dB.';
+  }
+}
+
+const slider = document.getElementById('bitsSlider');
+const bitsValLabel = document.getElementById('bitsVal');
+
+slider.addEventListener('input', () => {
+  numBits = parseInt(slider.value, 10);
+  bitsValLabel.textContent = numBits;
+  updateSnr();
+  draw();
+});
+
+updateSnr();
+draw();
+</script>
+
+<footer style="margin-top: 3rem; font-size: 0.9em; opacity: 0.7;">
+  © 2026 Carlos J. Escudero — <a href="LICENSE">MIT License</a>
+</footer>
+
+</body>
+</html>
