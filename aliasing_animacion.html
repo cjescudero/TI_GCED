@@ -234,6 +234,7 @@ function drawFAxis() {
 
   const ticks = [
     { x: centerX - half }, { x: centerX + half },
+    { x: centerX - Fs }, { x: centerX + Fs },
     { x: centerX - half - Fs }, { x: centerX + half + Fs },
   ];
   ctx.lineWidth = 1;
@@ -245,6 +246,9 @@ function drawFAxis() {
 
   if (centerX - half > axisLeft + 15) ctx.fillText('−Fs/2', centerX - half, axisY + 22);
   if (centerX + half < axisRight - 15) ctx.fillText('Fs/2', centerX + half, axisY + 22);
+  ctx.font = '13px "STIX Two Text", serif';
+  if (centerX - Fs > axisLeft + 15) ctx.fillText('−Fs', centerX - Fs, axisY + 22);
+  if (centerX + Fs < axisRight - 15) ctx.fillText('Fs', centerX + Fs, axisY + 22);
   ctx.font = '11px "STIX Two Text", serif';
   if (centerX - half - Fs > axisLeft + 15) ctx.fillText('−(Fs/2+Fs)', centerX - half - Fs, axisY + 22);
   if (centerX + half + Fs < axisRight - 15) ctx.fillText('Fs/2+Fs', centerX + half + Fs, axisY + 22);
@@ -259,6 +263,50 @@ function drawFAxis() {
 
 // --- f axis ---
 function drawFNormAxis() {
+  // Visual hint: the discrete-time spectrum is periodic beyond [-1/2, 1/2]
+  const shadeTop = fAxisY - fTriHeight - 18;
+  const shadeBottom = fAxisY + 14;
+  const leftShadeL = Math.max(20, fAxisLeft - 36);
+  const leftShadeR = centerX - fHalfMark;
+  const rightShadeL = centerX + fHalfMark;
+  const rightShadeR = Math.min(W - 20, fAxisRight + 36);
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(120, 120, 120, 0.10)';
+  if (leftShadeR > leftShadeL) ctx.fillRect(leftShadeL, shadeTop, leftShadeR - leftShadeL, shadeBottom - shadeTop);
+  if (rightShadeR > rightShadeL) ctx.fillRect(rightShadeL, shadeTop, rightShadeR - rightShadeL, shadeBottom - shadeTop);
+
+  // Light hatch from the ±1/2 limits outward, clipped to shaded zones
+  ctx.strokeStyle = 'rgba(90, 90, 90, 0.22)';
+  ctx.lineWidth = 1;
+  if (leftShadeR > leftShadeL) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(leftShadeL, shadeTop, leftShadeR - leftShadeL, shadeBottom - shadeTop);
+    ctx.clip();
+    for (let x = leftShadeR; x >= leftShadeL - 18; x -= 10) {
+      ctx.beginPath();
+      ctx.moveTo(x, shadeTop);
+      ctx.lineTo(x - 18, shadeBottom);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (rightShadeR > rightShadeL) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rightShadeL, shadeTop, rightShadeR - rightShadeL, shadeBottom - shadeTop);
+    ctx.clip();
+    for (let x = rightShadeL; x <= rightShadeR + 18; x += 10) {
+      ctx.beginPath();
+      ctx.moveTo(x, shadeTop);
+      ctx.lineTo(x + 18, shadeBottom);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+
   drawArrow(fAxisLeft - 20, fAxisY, fAxisRight + 20, fAxisY, COL_BLACK, 1);
 
   ctx.strokeStyle = COL_BLACK; ctx.lineWidth = 1.2;
@@ -275,6 +323,7 @@ function drawFNormAxis() {
 
   ctx.font = 'italic 16px "STIX Two Text", serif'; ctx.textAlign = 'left';
   ctx.fillText('f = F/Fs', fAxisRight + 24, fAxisY + 5);
+
 }
 
 // --- Mapping lines ---

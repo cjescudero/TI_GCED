@@ -168,7 +168,7 @@ function quantize(x, n) {
 
 // Pre-compute sample values (fixed grid, recomputed on bits change)
 let sampleQ = [];   // quantized value per sample
-let sampleE = [];   // quantization error per sample
+let sampleE = [];   // quantization error per sample: e_q[n] = x_q[n] - x[n]
 function computeSamples() {
   sampleQ = [];
   sampleE = [];
@@ -177,7 +177,7 @@ function computeSamples() {
     const a = analogSignal(t);
     const q = quantize(a, numBits);
     sampleQ.push(q);
-    sampleE.push(a - q);                 // always in [−½Δ, +½Δ)
+    sampleE.push(q - a);                 // always in [−½Δ, +½Δ)
   }
 }
 
@@ -310,7 +310,7 @@ function drawLabels() {
   ctx.fillStyle = '#444';
   ctx.textAlign = 'left';
   ctx.fillText('Señal analógica (azul) y señal cuantificada (rojo)', plotLeft, plotTop - 18);
-  ctx.fillText('Error de cuantificación e[n] = x[n] − xq[n]', plotLeft, plotTop2 - 14);
+  drawErrorFormula(plotLeft, plotTop2 - 14);
   ctx.restore();
 
   // X axis label
@@ -348,6 +348,40 @@ function drawLabels() {
   ctx.stroke();
   ctx.fillStyle = COL_RED;
   ctx.fillText('Cuantificada', legX - 82, legY + 22);
+}
+
+// Draw e_q[n] and x_q[n] with a true subscript style on canvas
+function drawErrorFormula(x, y) {
+  const mainFont = '600 14px "Playfair Display", serif';
+  const subFont = '600 10px "Playfair Display", serif';
+  let cx = x;
+  const subYOffset = 3;
+
+  ctx.font = mainFont;
+  ctx.fillStyle = '#444';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  function drawText(text) {
+    ctx.fillText(text, cx, y);
+    cx += ctx.measureText(text).width;
+  }
+
+  function drawWithSub(base, sub) {
+    ctx.fillText(base, cx, y);
+    cx += ctx.measureText(base).width;
+    ctx.save();
+    ctx.font = subFont;
+    ctx.fillText(sub, cx, y + subYOffset);
+    cx += ctx.measureText(sub).width;
+    ctx.restore();
+  }
+
+  drawText('Error de cuantificación ');
+  drawWithSub('e', 'q');
+  drawText('[n] = ');
+  drawWithSub('x', 'q');
+  drawText('[n] − x[n]');
 }
 
 // ────────── Main ──────────
