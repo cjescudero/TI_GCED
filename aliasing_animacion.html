@@ -14,7 +14,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1.2rem 1rem;
+    padding: 0.8rem 1rem;
     min-height: 100vh;
   }
   .nav-menu {
@@ -60,7 +60,7 @@
     margin-bottom: 0.75rem;
   }
   .controls {
-    margin-top: 1.2rem;
+    margin-top: 0.7rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -96,7 +96,7 @@
 <h1>Aliasing al muestrear</h1>
 <div class="top-eq"><i>x<sub>a</sub></i>(<i>t</i>) = <i>A</i> cos(2π<i>Ft</i> + θ)</div>
 
-<canvas id="cTop" class="mini-spectrum" width="900" height="180"></canvas>
+<canvas id="cTop" class="mini-spectrum" width="900" height="155"></canvas>
 
 <div class="controls">
   <div class="slider-row">
@@ -107,7 +107,7 @@
 </div>
 
 <div class="mid-eq"><i>x</i>[<i>n</i>] = <i>x<sub>a</sub></i>(<i>nT<sub>s</sub></i>) = <i>A</i> cos(2π<i>fn</i> + θ), &ensp; <i>F<sub>s</sub></i> = 1/<i>T<sub>s</sub></i>, &ensp; <i>f</i> = <i>F</i>/<i>F<sub>s</sub></i></div>
-<canvas id="c" width="900" height="445"></canvas>
+<canvas id="c" width="900" height="390"></canvas>
 
 <script>
 const topCanvas = document.getElementById('cTop');
@@ -119,11 +119,11 @@ const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
 // Layout
-const topLabelY = 18;       // "Señal discreta" label area
-const fAxisY = 390;          // f result axis (bottom)
-const dividerY = 235;       // separator between top and bottom
-const bottomLabelY = 252;   // "Muestreo" label area
-const axisY = 155;           // F axis (top)
+const topLabelY = 14;       // "Señal discreta" label area
+const fAxisY = 345;          // f result axis (bottom)
+const dividerY = 205;       // separator between top and bottom
+const bottomLabelY = 220;   // "Muestreo" label area
+const axisY = 140;           // F axis (top)
 const centerX = W / 2;
 const axisLeft = 50;
 const axisRight = W - 50;
@@ -151,7 +151,7 @@ const COL_GREEN = '#0e7c4a';
 function getFsPx() { return fsRatio * Fmax_px; }
 
 function drawTopPreview() {
-  const axisYP = 150;
+  const axisYP = 130;
   const centerXP = WTop / 2;
   const leftP = 50;
   const rightP = WTop - 50;
