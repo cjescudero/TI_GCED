@@ -42,13 +42,22 @@
   .top-eq {
     font-size: 1.05rem;
     color: #333;
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
+    text-align: center;
+  }
+  .mid-eq {
+    font-size: 1.05rem;
+    color: #333;
+    margin: 0.4rem 0 0.8rem;
     text-align: center;
   }
   canvas {
     border: 1px solid #e0e0e0;
     border-radius: 6px;
     max-width: 100%;
+  }
+  .mini-spectrum {
+    margin-bottom: 0.75rem;
   }
   .controls {
     margin-top: 1.2rem;
@@ -85,12 +94,9 @@
 <a href="https://cjescudero.github.io/TI_GCED/" class="nav-menu" rel="noopener noreferrer" aria-label="Volver al índice de materiales">Índice de materiales</a>
 
 <h1>Aliasing al muestrear</h1>
-<div class="top-eq">
-  <i>x<sub>a</sub></i>(<i>t</i>) = <i>A</i> cos(2π<i>Ft</i> + θ) &ensp;⟺&ensp; <i>x</i>[<i>n</i>] = <i>A</i> cos(2π<i>fn</i> + θ),
-  &ensp; <i>f</i> = <i>F</i>/<i>F<sub>s</sub></i>
-</div>
+<div class="top-eq"><i>x<sub>a</sub></i>(<i>t</i>) = <i>A</i> cos(2π<i>Ft</i> + θ)</div>
 
-<canvas id="c" width="900" height="530"></canvas>
+<canvas id="cTop" class="mini-spectrum" width="900" height="180"></canvas>
 
 <div class="controls">
   <div class="slider-row">
@@ -100,17 +106,24 @@
   </div>
 </div>
 
+<div class="mid-eq"><i>x</i>[<i>n</i>] = <i>x<sub>a</sub></i>(<i>nT<sub>s</sub></i>) = <i>A</i> cos(2π<i>fn</i> + θ), &ensp; <i>F<sub>s</sub></i> = 1/<i>T<sub>s</sub></i>, &ensp; <i>f</i> = <i>F</i>/<i>F<sub>s</sub></i></div>
+<canvas id="c" width="900" height="445"></canvas>
+
 <script>
+const topCanvas = document.getElementById('cTop');
+const topCtx = topCanvas.getContext('2d');
+const WTop = topCanvas.width, HTop = topCanvas.height;
+
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
 // Layout
 const topLabelY = 18;       // "Señal discreta" label area
-const fAxisY = 130;          // f result axis (top)
+const fAxisY = 390;          // f result axis (bottom)
 const dividerY = 235;       // separator between top and bottom
 const bottomLabelY = 252;   // "Muestreo" label area
-const axisY = 430;           // F axis (bottom)
+const axisY = 155;           // F axis (top)
 const centerX = W / 2;
 const axisLeft = 50;
 const axisRight = W - 50;
@@ -119,8 +132,9 @@ const Fmax_px = 80;
 
 const fAxisLeft = centerX - 200;
 const fAxisRight = centerX + 200;
-const fHalfMark = 140;
-const fTriHeight = 65;
+// Align ±1/2 with ±Fs/2 for the initial setting Fs/Fmax = 3
+const fHalfMark = (3 * Fmax_px) / 2;
+const fTriHeight = 120;      // Keep same visual amplitude scale as top spectrum
 
 let fsRatio = 3.0;
 
@@ -135,6 +149,53 @@ const COL_GRAY = '#888';
 const COL_GREEN = '#0e7c4a';
 
 function getFsPx() { return fsRatio * Fmax_px; }
+
+function drawTopPreview() {
+  const axisYP = 150;
+  const centerXP = WTop / 2;
+  const leftP = 50;
+  const rightP = WTop - 50;
+
+  topCtx.clearRect(0, 0, WTop, HTop);
+
+  // Axis F without numeric frequency marks
+  topCtx.strokeStyle = COL_BLACK;
+  topCtx.lineWidth = 1.2;
+  topCtx.beginPath();
+  topCtx.moveTo(leftP - 10, axisYP);
+  topCtx.lineTo(rightP + 10, axisYP);
+  topCtx.stroke();
+
+  const a = Math.atan2(0, rightP + 10 - (leftP - 10));
+  const s = 7;
+  topCtx.beginPath();
+  topCtx.moveTo(rightP + 10, axisYP);
+  topCtx.lineTo(rightP + 10 - s * Math.cos(a - 0.4), axisYP - s * Math.sin(a - 0.4));
+  topCtx.moveTo(rightP + 10, axisYP);
+  topCtx.lineTo(rightP + 10 - s * Math.cos(a + 0.4), axisYP - s * Math.sin(a + 0.4));
+  topCtx.stroke();
+
+  topCtx.fillStyle = 'rgba(27,107,147,0.08)';
+  topCtx.beginPath();
+  topCtx.moveTo(centerXP - Fmax_px, axisYP);
+  topCtx.lineTo(centerXP, axisYP - triHeight);
+  topCtx.lineTo(centerXP + Fmax_px, axisYP);
+  topCtx.closePath();
+  topCtx.fill();
+
+  topCtx.strokeStyle = COL_BLUE;
+  topCtx.lineWidth = 2;
+  topCtx.beginPath();
+  topCtx.moveTo(centerXP - Fmax_px, axisYP);
+  topCtx.lineTo(centerXP, axisYP - triHeight);
+  topCtx.lineTo(centerXP + Fmax_px, axisYP);
+  topCtx.stroke();
+
+  topCtx.font = 'italic 20px "STIX Two Text", serif';
+  topCtx.fillStyle = COL_BLACK;
+  topCtx.textAlign = 'left';
+  topCtx.fillText('F', rightP + 14, axisYP + 7);
+}
 
 function drawArrow(x1, y1, x2, y2, color, lw) {
   ctx.strokeStyle = color; ctx.lineWidth = lw || 1.2;
@@ -171,7 +232,7 @@ function drawSectionLabels() {
   ctx.font = '600 15px "Playfair Display", serif';
   ctx.fillStyle = '#444';
   ctx.textAlign = 'left';
-  ctx.fillText('Espectro de la señal discreta resultante', 20, topLabelY + 14);
+  ctx.fillText('Efecto del muestreo: réplicas espectrales en frecuencia continua F', 20, topLabelY + 14);
 
   // Divider line
   ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
@@ -182,7 +243,7 @@ function drawSectionLabels() {
   // Bottom section label
   ctx.font = '600 15px "Playfair Display", serif';
   ctx.fillStyle = '#444';
-  ctx.fillText('Efecto del muestreo: réplicas espectrales en frecuencia continua F', 20, bottomLabelY + 14);
+  ctx.fillText('Espectro de la señal discreta resultante', 20, bottomLabelY + 14);
 
   ctx.restore();
 }
@@ -226,6 +287,28 @@ function drawBands() {
 function drawFAxis() {
   const Fs = getFsPx(), half = Fs / 2;
   drawArrow(axisLeft - 10, axisY, axisRight + 10, axisY, COL_BLACK, 1.2);
+
+  // Visual references for Nyquist limits: -Fs/2 and Fs/2
+  ctx.save();
+  ctx.strokeStyle = 'rgba(27, 107, 147, 0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 4]);
+  const refTop = axisY - triHeight - 10;
+  const refBottom = axisY + 8;
+  if (centerX - half > axisLeft + 2 && centerX - half < axisRight - 2) {
+    ctx.beginPath();
+    ctx.moveTo(centerX - half, refTop);
+    ctx.lineTo(centerX - half, refBottom);
+    ctx.stroke();
+  }
+  if (centerX + half > axisLeft + 2 && centerX + half < axisRight - 2) {
+    ctx.beginPath();
+    ctx.moveTo(centerX + half, refTop);
+    ctx.lineTo(centerX + half, refBottom);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
 
   ctx.strokeStyle = COL_BLACK; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(centerX, axisY - 6); ctx.lineTo(centerX, axisY + 8); ctx.stroke();
@@ -309,6 +392,22 @@ function drawFNormAxis() {
 
   drawArrow(fAxisLeft - 20, fAxisY, fAxisRight + 20, fAxisY, COL_BLACK, 1);
 
+  // Visual references for normalised Nyquist limits: -1/2 and 1/2
+  ctx.save();
+  ctx.strokeStyle = 'rgba(27, 107, 147, 0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 4]);
+  const refTop = fAxisY - fTriHeight - 10;
+  const refBottom = fAxisY + 8;
+  ctx.beginPath();
+  ctx.moveTo(centerX - fHalfMark, refTop);
+  ctx.lineTo(centerX - fHalfMark, refBottom);
+  ctx.moveTo(centerX + fHalfMark, refTop);
+  ctx.lineTo(centerX + fHalfMark, refBottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
   ctx.strokeStyle = COL_BLACK; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(centerX, fAxisY - 5); ctx.lineTo(centerX, fAxisY + 5); ctx.stroke();
 
@@ -334,26 +433,10 @@ function drawMappingLines() {
 
   ctx.strokeStyle = COL_CYAN;
   if (centerX - half > axisLeft) {
-    ctx.beginPath(); ctx.moveTo(centerX - fHalfMark, fAxisY + 8); ctx.lineTo(centerX - half, axisY - 25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(centerX - half, axisY + 8); ctx.lineTo(centerX - fHalfMark, fAxisY - 25); ctx.stroke();
   }
   if (centerX + half < axisRight) {
-    ctx.beginPath(); ctx.moveTo(centerX + fHalfMark, fAxisY + 8); ctx.lineTo(centerX + half, axisY - 25); ctx.stroke();
-  }
-
-  ctx.strokeStyle = COL_RED;
-  if (centerX + half < axisRight) {
-    ctx.beginPath(); ctx.moveTo(centerX - fHalfMark, fAxisY + 8); ctx.lineTo(centerX + half, axisY - 25); ctx.stroke();
-  }
-  if (centerX + half + Fs < axisRight) {
-    ctx.beginPath(); ctx.moveTo(centerX + fHalfMark, fAxisY + 8); ctx.lineTo(centerX + half + Fs, axisY - 25); ctx.stroke();
-  }
-
-  ctx.strokeStyle = COL_ORANGE;
-  if (centerX - half > axisLeft) {
-    ctx.beginPath(); ctx.moveTo(centerX + fHalfMark, fAxisY + 8); ctx.lineTo(centerX - half, axisY - 25); ctx.stroke();
-  }
-  if (centerX - half - Fs > axisLeft) {
-    ctx.beginPath(); ctx.moveTo(centerX - fHalfMark, fAxisY + 8); ctx.lineTo(centerX - half - Fs, axisY - 25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(centerX + half, axisY + 8); ctx.lineTo(centerX + fHalfMark, fAxisY - 25); ctx.stroke();
   }
 
   ctx.setLineDash([]); ctx.restore();
@@ -361,15 +444,15 @@ function drawMappingLines() {
 
 // --- Spectra on F axis ---
 function drawOrigSpectrum() {
-  drawFilledTri(centerX, axisY - 20, Fmax_px, triHeight, 'rgba(27,107,147,0.08)', 1);
-  drawTriangle(centerX, axisY - 20, Fmax_px, triHeight, COL_BLUE, 1, false);
+  drawFilledTri(centerX, axisY, Fmax_px, triHeight, 'rgba(27,107,147,0.08)', 1);
+  drawTriangle(centerX, axisY, Fmax_px, triHeight, COL_BLUE, 1, false);
 }
 
 function drawReplica(offset, color, fill, alpha) {
   const cx = centerX + offset * getFsPx();
   if (cx - Fmax_px > axisRight + 20 || cx + Fmax_px < axisLeft - 20) return;
-  drawFilledTri(cx, axisY - 20, Fmax_px, triHeight, fill, alpha * 0.5);
-  drawTriangle(cx, axisY - 20, Fmax_px, triHeight, color, alpha, true);
+  drawFilledTri(cx, axisY, Fmax_px, triHeight, fill, alpha * 0.5);
+  drawTriangle(cx, axisY, Fmax_px, triHeight, color, alpha, true);
 }
 
 // --- Result spectrum on f axis (sum of all periodic replicas) ---
@@ -520,8 +603,8 @@ function drawOverlapWarning() {
   if (Fmax_px > half) {
     const ov = Fmax_px - half;
     ctx.save(); ctx.globalAlpha = 0.2; ctx.fillStyle = '#ff0000';
-    ctx.fillRect(centerX - half - ov, axisY - 20 - triHeight, ov * 2, triHeight);
-    ctx.fillRect(centerX + half - ov, axisY - 20 - triHeight, ov * 2, triHeight);
+    ctx.fillRect(centerX - half - ov, axisY - triHeight, ov * 2, triHeight);
+    ctx.fillRect(centerX + half - ov, axisY - triHeight, ov * 2, triHeight);
     ctx.restore();
 
     ctx.save();
@@ -541,11 +624,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   drawSectionLabels();
 
-  // Top: result
-  drawFNormAxis();
-  drawResultSpectrum();
-
-  // Bottom: sampling effect
+  // Top: sampling effect
   drawFAxis();
   drawBands();
   drawMappingLines();
@@ -555,6 +634,10 @@ function draw() {
   drawReplica(2, COL_RED, COL_RED_LIGHT, 0.35);
   drawReplica(-2, COL_ORANGE, COL_ORANGE_LIGHT, 0.35);
   drawOverlapWarning();
+
+  // Bottom: result
+  drawFNormAxis();
+  drawResultSpectrum();
 }
 
 // --- Slider ---
@@ -568,6 +651,7 @@ slider.addEventListener('input', () => {
 });
 
 // Initial draw
+drawTopPreview();
 draw();
 </script>
 
