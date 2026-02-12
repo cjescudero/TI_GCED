@@ -103,8 +103,8 @@
 <div class="controls">
   <div class="slider-row">
     <label>Número de bits <i>N</i>:</label>
-    <input type="range" id="bitsSlider" min="1" max="16" step="1" value="8"/>
-    <span class="val" id="bitsVal">8</span>
+    <input type="range" id="bitsSlider" min="1" max="16" step="1" value="5"/>
+    <span class="val" id="bitsVal">5</span>
   </div>
   <p class="info" id="snrInfo">Relación señal-ruido aproximada: 48 dB (≈ <i>N</i>×6 dB). CD audio: 16 bits → ~96 dB.</p>
 </div>
@@ -131,7 +131,7 @@ const COL_BLUE = '#1b6b93';
 const COL_RED = '#c0392b';
 const COL_GREEN = '#0e7c4a';
 
-let numBits = 8;
+let numBits = 5;
 
 // ── Fixed sampling grid ──
 const NUM_SAMPLES = 80;          // fixed number of samples (Ts constant)
@@ -276,8 +276,21 @@ function drawPanel2() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Error staircase (green, same fixed sample grid)
-  drawStaircase(sampleE, e => yCenter - e * errScale, COL_GREEN, 1.8);
+  // Continuous quantization error: e_q(t) = x_q(t) - x(t)
+  ctx.strokeStyle = COL_GREEN;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let i = 0; i <= N_RENDER; i++) {
+    const t = i / N_RENDER;
+    const x = analogSignal(t);
+    const xq = quantize(x, numBits);
+    const e = xq - x;
+    const px = plotLeft + t * plotW;
+    const py = yCenter - e * errScale;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
 
   // Axis
   ctx.strokeStyle = COL_BLACK;
